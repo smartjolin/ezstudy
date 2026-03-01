@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ==================== AUTH ====================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // hashed with bcrypt
+  role          Role      @default(TUTOR)
+
+  // Tutor branding
+  businessName String?
+  brandColor   String?  @default("#7c6bc4")
+  logoUrl      String?
+
+  // Relations
+  accounts Account[]
+  sessions Session[]
+
+  // Tutor <-> Student
+  studentsAsTutor StudentTutor[] @relation("TutorStudents")
+  tutorsAsStudent StudentTutor[] @relation("StudentTutors")
+
+  // Parent <-> Student
+  childrenAsParent ParentStudent[] @relation("ParentChildren")
+  parentsAsStudent ParentStudent[] @relation("StudentParents")
+
+  // Content
+  studySets    StudySet[]
+  quizAttempts QuizAttempt[]
+
+  // Assignments
+  assignedByMe Assignment[] @relation("AssignedBy")
+  assignedToMe Assignment[] @relation("AssignedTo")
+
+  // Tutoring sessions
+  sessionsAsTutor  TutoringSession[] @relation("SessionTutor")
+  sessionsAsStudent TutoringSession[] @relation("SessionStudent")
+
+  // Chat
+  chatSessions ChatSession[]
+
+  // Flashcard mastery
+  flashcardMastery FlashcardMastery[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  TUTOR
+  STUDENT
+  PARENT
+}
+
+model StudentTutor {
+  id        String  @id @default(cuid())
+  tutorId   String
+  studentId String
+  subject   String?
+  notes     String?
+
+  tutor   User @relation("TutorStudents", fields: [tutorId], references: [id], onDelete: Cascade)
+  student User @relation("StudentTutors", fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([tutorId, studentId])
+}
+
+model ParentStudent {
+  id        String @id @default(cuid())
+  parentId  String
+  studentId String
+
+  parent  User @relation("ParentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  student User @relation("StudentParents", fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, studentId])
+}
+
+// ==================== STUDY CONTENT ====================
+
+model StudySet {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+
+  // Generation settings
+  gradeLevel         String? // elementary, middle_school, high_school, ap, college
+  difficulty         String? // easy, medium, hard
+  curriculum         String? // common_core, ap, ib, custom
+  customInstructions String? @db.Text
+
+  // Sharing
+  shareCode String?  @unique
+  isPublic  Boolean  @default(false)
+
+  // Owner
+  creatorId String
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  // Content
+  flashcards    Flashcard[]
+  quizQuestions QuizQuestion[]
+  notes         StudyNote[]
+
+  // Usage
+  assignments  Assignment[]
+  quizAttempts QuizAttempt[]
+  chatSessions ChatSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Flashcard {
+  id    String @id @default(cuid())
+  front String
+  back  String
+  order Int    @default(0)
+
+  studySetId String
+  studySet   StudySet @relation(fields: [studySetId], references: [id], onDelete: Cascade)
+
+  masteryRecords FlashcardMastery[]
+}
+
+model FlashcardMastery {
+  id       String  @id @default(cuid())
+  mastered Boolean @default(false)
+
+  flashcardId String
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([flashcardId, userId])
+}
+
+model QuizQuestion {
+  id            String       @id @default(cuid())
+  question      String
+  type          QuestionType @default(MULTIPLE_CHOICE)
+  options       Json? // string[] for MC
+  correctIndex  Int? // for MC
+  correctAnswer String? // for fill-in-blank, short answer
+  explanation   String?
+  order         Int          @default(0)
+
+  studySetId String
+  studySet   StudySet @relation(fields: [studySetId], references: [id], onDelete: Cascade)
+
+  answers QuizAnswer[]
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  FILL_IN_BLANK
+  SHORT_ANSWER
+  MATCHING
+}
+
+model StudyNote {
+  id      String @id @default(cuid())
+  title   String
+  content String @db.Text
+  order   Int    @default(0)
+
+  studySetId String
+  studySet   StudySet @relation(fields: [studySetId], references: [id], onDelete: Cascade)
+}
+
+// ==================== ASSESSMENTS ====================
+
+model QuizAttempt {
+  id             String @id @default(cuid())
+  score          Int
+  totalQuestions Int
+  timeSpent      Int? // seconds
+  timeLimitSec   Int? // configured time limit
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studySetId String
+  studySet   StudySet @relation(fields: [studySetId], references: [id], onDelete: Cascade)
+
+  answers QuizAnswer[]
+
+  createdAt DateTime @default(now())
+}
+
+model QuizAnswer {
+  id            String  @id @default(cuid())
+  selectedIndex Int?
+  textAnswer    String?
+  isCorrect     Boolean
+
+  attemptId  String
+  attempt    QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+// ==================== ASSIGNMENTS ====================
+
+model Assignment {
+  id     String           @id @default(cuid())
+  dueDate DateTime?
+  status  AssignmentStatus @default(PENDING)
+
+  studySetId   String
+  studySet     StudySet @relation(fields: [studySetId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedToId String
+  assignedTo   User     @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  openedAt    DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+enum AssignmentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ==================== TUTORING SESSIONS ====================
+
+model TutoringSession {
+  id          String        @id @default(cuid())
+  title       String?
+  scheduledAt DateTime
+  duration    Int? // minutes
+  status      SessionStatus @default(SCHEDULED)
+
+  tutorId   String
+  tutor     User   @relation("SessionTutor", fields: [tutorId], references: [id])
+  studentId String
+  student   User   @relation("SessionStudent", fields: [studentId], references: [id])
+
+  notes String? @db.Text // session notes
+  recap String? @db.Text // AI-generated recap
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ==================== AI CHAT ====================
+
+model ChatSession {
+  id       String @id @default(cuid())
+  messages Json // Array of { role, content }
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studySetId String
+  studySet   StudySet @relation(fields: [studySetId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== NEXT-AUTH ====================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
