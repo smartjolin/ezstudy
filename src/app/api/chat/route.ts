@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deepseek } from "@/lib/deepseek";
+import { getDeepseek } from "@/lib/deepseek";
 
 type ChatMode = "normal" | "socratic" | "quiz_me" | "explain_simply";
 
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
       flashcardPerformance as FlashcardPerformance | undefined
     );
 
-    const completion = await deepseek.chat.completions.create({
+    const completion = await getDeepseek().chat.completions.create({
       model: "deepseek-chat",
       messages: [
         { role: "system", content: systemPrompt },

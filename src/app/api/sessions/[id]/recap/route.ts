@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deepseek } from "@/lib/deepseek";
+import { getDeepseek } from "@/lib/deepseek";
 
 export async function POST(
   request: NextRequest,
@@ -49,7 +49,7 @@ export async function POST(
       );
     }
 
-    const completion = await deepseek.chat.completions.create({
+    const completion = await getDeepseek().chat.completions.create({
       model: "deepseek-chat",
       messages: [
         {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deepseek } from "@/lib/deepseek";
+import { getDeepseek } from "@/lib/deepseek";
 
 export const maxDuration = 60; // Allow up to 60s for AI generation
 
@@ -99,7 +99,7 @@ Requirements:
 - Make content accurate, educational, and exam-focused
 - Notes should be comprehensive with proper markdown formatting`;
 
-    const completion = await deepseek.chat.completions.create({
+    const completion = await getDeepseek().chat.completions.create({
       model: "deepseek-chat",
       messages: [
         {
