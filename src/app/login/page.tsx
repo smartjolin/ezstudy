@@ -211,7 +211,7 @@ export default function LoginPage() {
               href="/signup"
               className="font-semibold text-primary hover:text-accent"
             >
-              Sign up for free
+              Sign up
             </Link>
           </p>
         </div>

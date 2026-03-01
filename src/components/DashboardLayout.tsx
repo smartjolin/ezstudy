@@ -139,7 +139,7 @@ export default function DashboardLayout({
                 className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-4 py-3 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
               >
                 <Sparkles className="h-4 w-4" />
-                Sign Up Free
+                Sign Up
               </Link>
             </>
           )}
