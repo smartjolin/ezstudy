@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
@@ -64,7 +65,17 @@ function getRelativeTime(dateStr: string): string {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="animate-pulse p-8 text-center text-text-secondary">Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("q")?.toLowerCase() || "";
   const [apiSets, setApiSets] = useState<StudySetFromAPI[]>([]);
   const [localSets, setLocalSets] = useState<GeneratedStudySet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +103,26 @@ export default function DashboardPage() {
     }
   }, [session, status]);
 
+  // Filter sets by search query
+  const filteredApiSets = useMemo(() => {
+    if (!searchQuery) return apiSets;
+    return apiSets.filter(
+      (set) =>
+        set.title.toLowerCase().includes(searchQuery) ||
+        set.description?.toLowerCase().includes(searchQuery) ||
+        set.subject?.toLowerCase().includes(searchQuery)
+    );
+  }, [apiSets, searchQuery]);
+
+  const filteredLocalSets = useMemo(() => {
+    if (!searchQuery) return localSets;
+    return localSets.filter(
+      (set) =>
+        set.title.toLowerCase().includes(searchQuery) ||
+        set.description.toLowerCase().includes(searchQuery)
+    );
+  }, [localSets, searchQuery]);
+
   const totalFlashcards =
     apiSets.reduce((s, set) => s + (set._count?.flashcards || 0), 0) +
     localSets.reduce((s, set) => s + set.flashcards.length, 0);
@@ -102,6 +133,7 @@ export default function DashboardPage() {
   const totalNotes =
     apiSets.reduce((s, set) => s + (set._count?.notes || 0), 0) +
     localSets.reduce((s, set) => s + set.notes.length, 0);
+  const filteredTotal = filteredApiSets.length + filteredLocalSets.length;
 
   const firstName = session?.user?.name?.split(" ")[0];
 
@@ -218,7 +250,16 @@ export default function DashboardPage() {
 
       {/* Study sets header */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-primary-dark">Your Study Sets</h2>
+        <div>
+          <h2 className="text-xl font-bold text-primary-dark">
+            {searchQuery ? `Search: "${searchQuery}"` : "Your Study Sets"}
+          </h2>
+          {searchQuery && (
+            <p className="mt-0.5 text-sm text-text-secondary">
+              {filteredTotal} result{filteredTotal !== 1 ? "s" : ""} found
+            </p>
+          )}
+        </div>
         <Link
           href="/dashboard/upload"
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
@@ -254,7 +295,7 @@ export default function DashboardPage() {
       {!loading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {/* API study sets */}
-          {apiSets.map((set, i) => (
+          {filteredApiSets.map((set, i) => (
             <Link
               key={set.id}
               href={`/dashboard/sets/${set.id}`}
@@ -301,7 +342,7 @@ export default function DashboardPage() {
           ))}
 
           {/* Local/session study sets */}
-          {localSets.map((set, i) => (
+          {filteredLocalSets.map((set, i) => (
             <Link
               key={set.id}
               href={`/dashboard/sets/${set.id}`}
@@ -309,7 +350,7 @@ export default function DashboardPage() {
             >
               <div className="mb-4 flex items-start justify-between">
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${cardColors[(apiSets.length + i) % cardColors.length]} text-white shadow-md`}
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${cardColors[(filteredApiSets.length + i) % cardColors.length]} text-white shadow-md`}
                 >
                   <Sparkles className="h-6 w-6" />
                 </div>
@@ -341,29 +382,33 @@ export default function DashboardPage() {
           ))}
 
           {/* Empty state */}
-          {totalSets === 0 && (
+          {filteredTotal === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary-light/30 bg-white/50 px-8 py-16 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-light/10">
                 <Sparkles className="h-8 w-8 text-primary" />
               </div>
               <p className="mt-4 text-lg font-semibold text-primary-dark">
-                No study sets yet
+                {searchQuery ? "No matching study sets" : "No study sets yet"}
               </p>
               <p className="mt-2 max-w-sm text-sm text-text-secondary">
-                Upload your study materials to generate AI-powered flashcards, quizzes, and notes.
+                {searchQuery
+                  ? `No study sets match "${searchQuery}". Try a different search term.`
+                  : "Upload your study materials to generate AI-powered flashcards, quizzes, and notes."}
               </p>
-              <Link
-                href="/dashboard/upload"
-                className="mt-6 flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
-              >
-                <Plus className="h-4 w-4" />
-                Create Your First Study Set
-              </Link>
+              {!searchQuery && (
+                <Link
+                  href="/dashboard/upload"
+                  className="mt-6 flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Your First Study Set
+                </Link>
+              )}
             </div>
           )}
 
-          {/* Add new set card (only show when there are existing sets) */}
-          {totalSets > 0 && (
+          {/* Add new set card (only show when there are existing sets and no search) */}
+          {filteredTotal > 0 && !searchQuery && (
             <Link
               href="/dashboard/upload"
               className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary-light/30 bg-white/50 p-8 text-center transition-all hover:border-primary hover:bg-surface"

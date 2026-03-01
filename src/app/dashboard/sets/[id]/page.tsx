@@ -15,15 +15,10 @@ import {
   X,
   Send,
   Sparkles,
-  Headphones,
-  Video,
-  PenTool,
   Timer,
   Download,
   ThumbsUp,
   ThumbsDown,
-  Brain,
-  HelpCircle,
   Zap,
   Shuffle,
   Lightbulb,
@@ -32,6 +27,7 @@ import {
   Copy,
   CheckCircle2,
   UserPlus,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -51,6 +47,7 @@ import {
   getDueCount,
   saveQuizAttempt,
   getFlashcardPerformance,
+  getPerformanceSummary,
   type CardStatus,
   type FlashcardPerformance,
 } from "@/lib/progress-store";
@@ -83,18 +80,6 @@ const tools = [
   { id: "chat" as Tab, icon: Bot, label: "AI Tutor" },
 ];
 
-const extraTools = [
-  { icon: Headphones, label: "Audio Recap", color: "from-amber-500 to-orange-600" },
-  { icon: Video, label: "Explainer Video", color: "from-rose-500 to-red-600" },
-  { icon: PenTool, label: "Essay Grader", color: "from-indigo-500 to-violet-600" },
-];
-
-const chatModes: { id: ChatMode; label: string; icon: React.ElementType }[] = [
-  { id: "normal", label: "Normal", icon: Bot },
-  { id: "socratic", label: "Socratic", icon: Brain },
-  { id: "quiz_me", label: "Quiz Me", icon: HelpCircle },
-  { id: "explain_simply", label: "Explain Simply", icon: Zap },
-];
 
 function useStudySetData(setId: string) {
   // Check generated sets first (AI-generated), then fall back to mock data
@@ -280,6 +265,13 @@ export default function StudySetPage() {
         </div>
       )}
 
+      {/* Progress summary banner */}
+      <ProgressBanner
+        setId={setId}
+        totalCards={setFlashcards.length}
+        onReviewDue={() => { setFlashcardMode("review"); setActiveTab("flashcards"); }}
+      />
+
       {/* Main tool tabs */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
         {tools.map((tool) => (
@@ -331,32 +323,74 @@ export default function StudySetPage() {
         </div>
       </div>
 
-      {/* Extra tools section */}
-      <div className="mt-8 border-t border-primary-light/10 pt-8">
-        <h3 className="mb-4 text-lg font-bold text-primary-dark">
-          More Study Tools
-        </h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {extraTools.map((tool) => (
-            <button
-              key={tool.label}
-              disabled
-              aria-label={`${tool.label} — coming soon`}
-              className="flex items-center gap-3 rounded-xl border border-primary-light/10 bg-white p-4 text-left opacity-60 cursor-not-allowed"
-            >
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br ${tool.color} text-white`}
-              >
-                <tool.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-semibold text-primary-dark">{tool.label}</p>
-                <p className="text-xs text-text-secondary">Coming soon</p>
-              </div>
-            </button>
-          ))}
+    </div>
+  );
+}
+
+/* ===================== PROGRESS BANNER ===================== */
+function ProgressBanner({
+  setId,
+  totalCards,
+  onReviewDue,
+}: {
+  setId: string;
+  totalCards: number;
+  onReviewDue: () => void;
+}) {
+  const summary = useMemo(() => getPerformanceSummary(setId, totalCards), [setId, totalCards]);
+  const dueCount = useMemo(() => getDueCount(setId, totalCards), [setId, totalCards]);
+
+  // Don't show banner if no progress data exists yet
+  if (summary.masteredCount === 0 && summary.learningCount === 0 && summary.quizAverage === 0 && dueCount === 0) {
+    return null;
+  }
+
+  const quizPct = Math.round(summary.quizAverage * 100);
+  const masteryPct = totalCards > 0 ? Math.round((summary.masteredCount / totalCards) * 100) : 0;
+
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-primary-light/10 bg-white p-4 shadow-sm sm:gap-5">
+      {/* Mastery */}
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+          <Layers className="h-4 w-4 text-emerald-600" />
+        </div>
+        <div>
+          <p className="text-xs text-text-secondary">Mastered</p>
+          <p className="text-sm font-bold text-primary-dark">{summary.masteredCount}/{totalCards} <span className="font-normal text-text-secondary">({masteryPct}%)</span></p>
         </div>
       </div>
+      {/* Quiz avg */}
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+          <ClipboardCheck className="h-4 w-4 text-blue-600" />
+        </div>
+        <div>
+          <p className="text-xs text-text-secondary">Quiz Avg</p>
+          <p className="text-sm font-bold text-primary-dark">{quizPct > 0 ? `${quizPct}%` : "—"}</p>
+        </div>
+      </div>
+      {/* Due cards */}
+      {dueCount > 0 && (
+        <button
+          onClick={onReviewDue}
+          className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition-all hover:bg-primary/20"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          {dueCount} due — Review Now
+        </button>
+      )}
+      {/* Weak topics */}
+      {summary.weakTopics.length > 0 && (
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-xs text-text-secondary">Weak:</span>
+          {summary.weakTopics.slice(0, 2).map((topic) => (
+            <span key={topic} className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 truncate max-w-[120px]">
+              {topic}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -748,11 +782,12 @@ function QuizzesView({
   onQuizComplete?: (history: QuizHistoryItem[]) => void;
   onReviewWeakCards?: () => void;
 }) {
-  // Quiz phases: "setup" | "active" | "finished"
-  const [phase, setPhase] = useState<"setup" | "active" | "finished">("setup");
+  // Quiz phases: "active" | "finished" (auto-start, no setup screen)
+  const [phase, setPhase] = useState<"active" | "finished">("active");
   const [timerOption, setTimerOption] = useState<TimerOption>("none");
   const [shuffleEnabled, setShuffleEnabled] = useState(true);
-  const [activeQuestions, setActiveQuestions] = useState(questions);
+  const [activeQuestions, setActiveQuestions] = useState(() => shuffleArray(questions));
+  const [showSettings, setShowSettings] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
@@ -775,6 +810,12 @@ function QuizzesView({
 
   const question = activeQuestions[currentQ];
   const questionType = question?.type || "MULTIPLE_CHOICE";
+
+  // Auto-start quiz on mount
+  useEffect(() => {
+    setStartTime(Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Timer logic
   useEffect(() => {
@@ -821,13 +862,25 @@ function QuizzesView({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const startQuiz = () => {
+  const restartQuiz = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     const ordered = shuffleEnabled ? shuffleArray(questions) : questions;
     setActiveQuestions(ordered);
+    setCurrentQ(0);
+    setSelectedAnswer(null);
+    setShowResult(false);
+    setScore(0);
+    setAnswers([]);
+    setFillInput("");
+    setShortAnswerInput("");
+    setShortAnswerSubmitted(false);
+    setSelfGrade(null);
+    setHintVisible(false);
     const totalSeconds = getTimerSeconds(timerOption, questions.length);
     setTimeRemaining(totalSeconds);
     setStartTime(Date.now());
     setPhase("active");
+    setShowSettings(false);
   };
 
   const finishQuiz = () => {
@@ -932,20 +985,7 @@ function QuizzesView({
   };
 
   const resetQuiz = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setPhase("setup");
-    setCurrentQ(0);
-    setSelectedAnswer(null);
-    setShowResult(false);
-    setScore(0);
-    setAnswers([]);
-    setFillInput("");
-    setShortAnswerInput("");
-    setShortAnswerSubmitted(false);
-    setSelfGrade(null);
-    setTimeRemaining(null);
-    setTimerOption("none");
-    setHintVisible(false);
+    restartQuiz();
   };
 
   const exportResults = () => {
@@ -988,77 +1028,7 @@ ${answers
     }
   };
 
-  // ==================== SETUP SCREEN ====================
-  if (phase === "setup") {
-    return (
-      <div className="mx-auto max-w-lg">
-        <div className="rounded-2xl border border-primary-light/20 bg-white p-6 shadow-lg sm:p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white">
-              <ClipboardCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-xl font-extrabold text-primary-dark">Quiz Setup</h3>
-              <p className="text-sm text-text-secondary">{questions.length} questions</p>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="mb-3 block text-sm font-semibold text-primary-dark">
-              <Timer className="mr-1 inline h-4 w-4" />
-              Time Limit
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { value: "none", label: "No time limit" },
-                { value: "30s", label: "30s per question" },
-                { value: "60s", label: "1 min per question" },
-                { value: "5min", label: "5 minutes total" },
-              ] as { value: TimerOption; label: string }[]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setTimerOption(opt.value)}
-                  className={`rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
-                    timerOption === opt.value
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-primary-light/20 bg-white text-text-secondary hover:border-primary/40"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Shuffle toggle */}
-          <div className="mb-6">
-            <button
-              onClick={() => setShuffleEnabled(!shuffleEnabled)}
-              className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
-                shuffleEnabled
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-primary-light/20 bg-white text-text-secondary"
-              }`}
-            >
-              <Shuffle className="h-4 w-4" />
-              Shuffle Questions
-              <span className={`ml-auto flex h-6 w-11 items-center rounded-full px-1 transition-all ${shuffleEnabled ? "bg-primary" : "bg-gray-300"}`}>
-                <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${shuffleEnabled ? "translate-x-5" : "translate-x-0"}`} />
-              </span>
-            </button>
-          </div>
-
-          <button
-            onClick={startQuiz}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent py-3 font-semibold text-white shadow-md transition-all hover:shadow-lg"
-          >
-            <Zap className="h-4 w-4" />
-            Start Quiz
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Inline settings bar (collapsible, replaces the old full-page setup screen)
 
   // ==================== FINISHED SCREEN ====================
   if (phase === "finished") {
@@ -1210,6 +1180,48 @@ ${answers
   if (!question) return null;
   return (
     <div className="mx-auto max-w-2xl">
+      {/* Inline settings bar */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:bg-surface hover:text-primary-dark"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          {shuffleEnabled ? "Shuffled" : "Ordered"} · {timerOption === "none" ? "No timer" : timerOption === "30s" ? "30s/q" : timerOption === "60s" ? "1min/q" : "5min"}
+          <ChevronRight className={`h-3 w-3 transition-transform ${showSettings ? "rotate-90" : ""}`} />
+        </button>
+        {showSettings && (
+          <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl border border-primary-light/10 bg-white p-3 animate-fade-in">
+            <button
+              onClick={() => setShuffleEnabled(!shuffleEnabled)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                shuffleEnabled ? "bg-primary/10 text-primary" : "bg-surface text-text-secondary"
+              }`}
+            >
+              <Shuffle className="h-3 w-3" />
+              Shuffle
+            </button>
+            <select
+              value={timerOption}
+              onChange={(e) => setTimerOption(e.target.value as TimerOption)}
+              className="rounded-lg border border-primary-light/20 bg-white px-2 py-1.5 text-xs font-medium text-text-secondary outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="none">No timer</option>
+              <option value="30s">30s per question</option>
+              <option value="60s">1 min per question</option>
+              <option value="5min">5 minutes total</option>
+            </select>
+            <button
+              onClick={restartQuiz}
+              className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all hover:bg-primary/20"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Restart
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Progress + Timer */}
       <div className="mb-4 flex items-center justify-between text-sm text-text-secondary">
         <span>
@@ -1703,26 +1715,13 @@ function ChatView({
     }
   };
 
+  const sendWithMode = (text: string, newMode: ChatMode) => {
+    setMode(newMode);
+    handleSend(text);
+  };
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col h-[calc(100vh-320px)] min-h-[400px] max-h-[700px]">
-      {/* Mode selector */}
-      <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-        {chatModes.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setMode(m.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
-              mode === m.id
-                ? "bg-gradient-to-r from-primary to-accent text-white shadow-md"
-                : "border border-primary-light/20 bg-white text-text-secondary hover:bg-surface hover:text-primary-dark"
-            }`}
-          >
-            <m.icon className="h-3.5 w-3.5" />
-            {m.label}
-          </button>
-        ))}
-      </div>
-
       {/* Chat messages */}
       <div className="flex-1 space-y-4 overflow-y-auto rounded-t-2xl border border-b-0 border-primary-light/20 bg-white p-4 sm:p-6">
         {messages.map((msg) => (
@@ -1790,30 +1789,33 @@ function ChatView({
         <div ref={chatEndRef} />
       </div>
 
-      {/* Quick prompts */}
+      {/* Quick prompts — action-oriented, implicitly set chat mode */}
       <div className="flex gap-2 overflow-x-auto border-x border-primary-light/20 bg-surface px-4 py-2">
         {(() => {
-          const prompts: string[] = [];
+          const prompts: { label: string; mode?: ChatMode }[] = [
+            { label: "Explain this simply", mode: "explain_simply" },
+            { label: "Quiz me on this", mode: "quiz_me" },
+            { label: "Help me think through it", mode: "socratic" },
+          ];
+          // Dynamic prompts based on performance
           if (flashcardPerf.weakCards.length > 0) {
             const weakFront = flashcardPerf.weakCards[0].front;
-            prompts.push(`Help me understand: ${weakFront.length > 30 ? weakFront.slice(0, 30) + "..." : weakFront}`);
+            prompts.push({ label: `Help me with: ${weakFront.length > 30 ? weakFront.slice(0, 30) + "..." : weakFront}`, mode: "explain_simply" });
           }
-          prompts.push("Summarize this topic");
           if (quizHistory.length > 0) {
             const accuracy = Math.round(
               (quizHistory.filter((q) => q.isCorrect).length / quizHistory.length) * 100
             );
-            prompts.push(accuracy < 70 ? "Explain my mistakes" : "Give me harder questions");
+            prompts.push(accuracy < 70 ? { label: "Explain my mistakes", mode: "explain_simply" } : { label: "Give me harder questions", mode: "quiz_me" });
           }
-          prompts.push("What should I study next?");
-          return prompts.slice(0, 4);
+          return prompts.slice(0, 5);
         })().map((prompt) => (
           <button
-            key={prompt}
-            onClick={() => handleSend(prompt)}
+            key={prompt.label}
+            onClick={() => prompt.mode ? sendWithMode(prompt.label, prompt.mode) : handleSend(prompt.label)}
             className="shrink-0 rounded-full border border-primary-light/20 bg-white px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-primary hover:text-primary active:scale-95"
           >
-            {prompt}
+            {prompt.label}
           </button>
         ))}
       </div>

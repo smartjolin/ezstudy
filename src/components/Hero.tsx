@@ -5,11 +5,10 @@ import Link from "next/link";
 import { ArrowRight, Upload, Sparkles } from "lucide-react";
 
 const typingTexts = [
-  "flashcards from your notes",
-  "quizzes from your lectures",
-  "study guides from your PDFs",
-  "summaries from your slides",
-  "practice tests in seconds",
+  "flashcards for tomorrow's biology test",
+  "a quiz on Chapter 5 vocabulary",
+  "study notes from your class PDF",
+  "practice problems for the exam",
 ];
 
 export default function Hero() {
@@ -55,7 +54,7 @@ export default function Hero() {
         <div className="text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-light/30 bg-white px-4 py-2 text-sm font-medium text-primary shadow-sm">
             <Sparkles className="h-4 w-4" />
-            <span>AI-Powered Study Tools</span>
+            <span>Free Study Tools for Tutors</span>
           </div>
 
           <h1 className="mx-auto max-w-4xl text-5xl font-extrabold leading-tight tracking-tight text-primary-dark sm:text-6xl lg:text-7xl">
@@ -67,9 +66,8 @@ export default function Hero() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-text-secondary sm:text-xl">
-            Upload your course materials and instantly get AI-generated
-            flashcards, quizzes, notes, and a personal AI tutor. Study smarter,
-            not harder.
+            Upload your lesson materials and get flashcards, quizzes, and notes
+            ready for your students &mdash; completely free.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -78,14 +76,8 @@ export default function Hero() {
               className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-accent px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
             >
               <Upload className="h-5 w-5" />
-              Get Started
+              Start Creating
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href="/#features"
-              className="flex items-center gap-2 rounded-full border-2 border-primary/20 bg-white px-8 py-4 text-lg font-semibold text-primary-dark transition-all hover:border-primary/40 hover:bg-surface"
-            >
-              Explore Features
             </Link>
           </div>
         </div>

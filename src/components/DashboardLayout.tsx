@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   Sparkles,
@@ -39,9 +39,26 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const isLoggedIn = status === "authenticated";
+
+  // Clear search when navigating away from dashboard
+  useEffect(() => {
+    if (pathname !== "/dashboard") setSearchQuery("");
+  }, [pathname]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (q) {
+      router.push(`/dashboard?q=${encodeURIComponent(q)}`);
+    } else {
+      router.push("/dashboard");
+    }
+  };
 
   // Initialize dark mode from localStorage
   useEffect(() => {
@@ -182,14 +199,25 @@ export default function DashboardLayout({
                 <Sparkles className="h-3.5 w-3.5 text-white" />
               </div>
             </Link>
-            <div className="hidden items-center gap-2 rounded-xl border border-primary-light/20 bg-surface px-4 py-2 sm:flex">
+            <form onSubmit={handleSearch} className="hidden items-center gap-2 rounded-xl border border-primary-light/20 bg-surface px-4 py-2 sm:flex">
               <Search className="h-4 w-4 text-text-secondary" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search study sets..."
                 className="w-64 bg-transparent text-sm text-primary-dark outline-none placeholder:text-text-secondary"
               />
-            </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(""); router.push("/dashboard"); }}
+                  className="text-text-secondary hover:text-primary-dark"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </form>
           </div>
 
           <div className="flex items-center gap-3">
