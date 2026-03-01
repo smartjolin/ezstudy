@@ -61,7 +61,17 @@ const authConfig: NextAuthConfig = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
-        token.role = user.role as Role;
+        // For OAuth sign-ins (e.g. Google), PrismaAdapter doesn't populate custom
+        // fields on the user object, so we fetch from DB to get the correct role.
+        if ((user as { role?: Role }).role) {
+          token.role = (user as { role: Role }).role;
+        } else {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id as string },
+            select: { role: true },
+          });
+          token.role = dbUser?.role ?? ("TUTOR" as Role);
+        }
       }
       return token;
     },

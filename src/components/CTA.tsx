@@ -23,10 +23,10 @@ export default function CTA() {
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/signup"
+            href="/dashboard/upload"
             className="group flex items-center gap-2 rounded-full bg-white px-8 py-4 text-lg font-semibold text-primary-dark shadow-xl transition-all hover:bg-surface hover:shadow-2xl"
           >
-            Get Started
+            Try It Free — No Account Needed
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
