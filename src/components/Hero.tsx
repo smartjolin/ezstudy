@@ -78,7 +78,7 @@ export default function Hero() {
               className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-accent px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
             >
               <Upload className="h-5 w-5" />
-              Try For Free
+              Get Started
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link

@@ -1,103 +1,54 @@
-"use client";
-
 import {
   FileText,
   Layers,
   ClipboardCheck,
   Bot,
-  Image,
-  Mic,
-  PenTool,
   GraduationCap,
-  Phone,
-  Headphones,
-  Video,
-  Calendar,
+  BarChart3,
 } from "lucide-react";
 
 const features = [
   {
-    icon: FileText,
-    name: "Notes AI",
-    description:
-      "Create comprehensive notes from your course material in seconds.",
-    color: "from-blue-500 to-blue-600",
-  },
-  {
     icon: Layers,
-    name: "Flashcards AI",
+    name: "AI Flashcards",
     description:
-      "Generate flashcards from your materials with a single click.",
+      "Generate flashcards from your materials with one click. Spaced repetition helps you remember what matters most.",
     color: "from-purple-500 to-purple-600",
   },
   {
     icon: ClipboardCheck,
-    name: "Quizzes AI",
+    name: "AI Quizzes",
     description:
-      "Create and practice with quizzes tailored to your course material.",
+      "Practice with multiple-choice quizzes tailored to your material. Get hints, explanations, and track your score.",
     color: "from-green-500 to-green-600",
+  },
+  {
+    icon: FileText,
+    name: "AI Notes",
+    description:
+      "Get comprehensive, well-organized notes generated from your course material in seconds.",
+    color: "from-blue-500 to-blue-600",
   },
   {
     icon: Bot,
     name: "Spark.E AI Tutor",
     description:
-      "Talk to your personal AI tutor and learn concepts in real time.",
+      "Chat with your personal AI tutor. It adapts to your weak areas and supports Socratic, quiz, and simple explanation modes.",
     color: "from-orange-500 to-orange-600",
   },
   {
-    icon: Image,
-    name: "Visual Analysis",
-    description:
-      "Ask questions about pictures, diagrams, and charts from your notes.",
-    color: "from-pink-500 to-pink-600",
-  },
-  {
-    icon: Mic,
-    name: "Record Live Lecture",
-    description:
-      "Take notes and ask questions in real-time during your lectures.",
-    color: "from-red-500 to-red-600",
-  },
-  {
-    icon: PenTool,
-    name: "Essay Grader",
-    description:
-      "Grade your essays and get personalized feedback and suggestions.",
-    color: "from-indigo-500 to-indigo-600",
-  },
-  {
     icon: GraduationCap,
-    name: "Tutor Me",
+    name: "Tutor Sessions",
     description:
-      "Get taught an entire lecture about your course material by Spark.E.",
+      "Tutors can schedule sessions with students, take notes, and generate AI-powered session recaps for parents.",
     color: "from-teal-500 to-teal-600",
   },
   {
-    icon: Phone,
-    name: "Call with Spark.E",
-    description: "Have a voice conversation with Spark.E about your material.",
-    color: "from-cyan-500 to-cyan-600",
-  },
-  {
-    icon: Headphones,
-    name: "Audio Recap",
+    icon: BarChart3,
+    name: "Progress Tracking",
     description:
-      "Generate a podcast-style summary from your study materials.",
-    color: "from-amber-500 to-amber-600",
-  },
-  {
-    icon: Video,
-    name: "Explainer Video",
-    description:
-      "Generate educational explainer videos using AI from your content.",
-    color: "from-rose-500 to-rose-600",
-  },
-  {
-    icon: Calendar,
-    name: "Study Calendar",
-    description:
-      "Plan your study sessions with AI and achieve your academic goals.",
-    color: "from-violet-500 to-violet-600",
+      "Track your mastery with spaced repetition stats, quiz scores, and study streaks across all your study sets.",
+    color: "from-indigo-500 to-indigo-600",
   },
 ];
 
@@ -107,18 +58,18 @@ export default function Features() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
-            Explore Features
+            Features
           </h2>
           <p className="mt-2 text-3xl font-bold text-primary-dark sm:text-4xl">
-            Your course material to an entire study set in 1 click
+            Your course material to a complete study set in one click
           </p>
           <p className="mx-auto mt-4 max-w-2xl text-text-secondary">
-            Automatically receive flashcards, quizzes, and personalized chat
-            help from your notes, videos, and PowerPoints.
+            Upload your notes or PDFs and get flashcards, quizzes, and
+            personalized AI tutoring — all for free.
           </p>
         </div>
 
-        <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.name}

@@ -6,14 +6,14 @@ const steps = [
     step: "01",
     title: "Upload Your Materials",
     description:
-      "Upload PDFs, slides, notes, lecture recordings, or paste a YouTube link. We support all major formats.",
+      "Upload PDFs or text files, or simply type in any topic. The AI works with whatever you give it.",
   },
   {
     icon: Cpu,
     step: "02",
     title: "AI Generates Study Tools",
     description:
-      "Our AI analyzes your content and instantly creates flashcards, quizzes, notes, summaries, and more.",
+      "Our AI analyzes your content and instantly creates flashcards, quizzes, and comprehensive study notes.",
   },
   {
     icon: BookOpen,

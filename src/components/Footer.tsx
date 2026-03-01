@@ -7,18 +7,18 @@ const footerLinks = {
     { label: "FAQ", href: "/#faq" },
   ],
   Features: [
-    { label: "AI Flashcards", href: "/signup" },
-    { label: "AI Quizzes", href: "/signup" },
-    { label: "AI Notes", href: "/signup" },
-    { label: "AI Tutor", href: "/signup" },
+    { label: "AI Flashcards", href: "/#features" },
+    { label: "AI Quizzes", href: "/#features" },
+    { label: "AI Notes", href: "/#features" },
+    { label: "AI Tutor", href: "/#features" },
   ],
   Company: [
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
   ],
-  Resources: [
-    { label: "For Educators", href: "/signup" },
-    { label: "For Students", href: "/signup" },
+  "Get Started": [
+    { label: "Sign Up", href: "/signup" },
+    { label: "Login", href: "/login" },
   ],
 };
 
@@ -35,8 +35,8 @@ export default function Footer() {
               <span className="text-xl font-bold text-white">EzStudy</span>
             </Link>
             <p className="mt-4 text-sm text-white/60">
-              AI-powered learning platform that transforms your study materials
-              into effective study tools.
+              Free AI-powered study tools for students and tutors. Upload your
+              materials, study smarter.
             </p>
           </div>
 

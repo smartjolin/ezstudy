@@ -43,7 +43,7 @@ export default function Navbar() {
               href="/signup"
               className="rounded-full bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
             >
-              Sign Up Free
+              Sign Up
             </Link>
           </div>
 
@@ -88,7 +88,7 @@ export default function Navbar() {
               href="/signup"
               className="rounded-full bg-gradient-to-r from-primary to-accent px-6 py-2.5 text-center text-sm font-semibold text-white"
             >
-              Sign Up Free
+              Sign Up
             </Link>
           </div>
         </div>
