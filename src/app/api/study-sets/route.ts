@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
           select: {
             flashcards: true,
             quizQuestions: true,
+            notes: true,
           },
         },
       },
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
           select: {
             flashcards: true,
             quizQuestions: true,
+            notes: true,
           },
         },
       },
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
     const {
       title,
       description,
+      subject,
       gradeLevel,
       difficulty,
       curriculum,
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
       data: {
         title,
         description,
+        subject,
         gradeLevel,
         difficulty,
         curriculum,
@@ -121,6 +125,7 @@ export async function POST(request: NextRequest) {
                     correctIndex?: number;
                     correctAnswer?: string;
                     explanation?: string;
+                    hint?: string;
                   },
                   index: number
                 ) => ({
@@ -130,6 +135,7 @@ export async function POST(request: NextRequest) {
                   correctIndex: q.correctIndex,
                   correctAnswer: q.correctAnswer,
                   explanation: q.explanation,
+                  hint: q.hint,
                   order: index,
                 })
               ),

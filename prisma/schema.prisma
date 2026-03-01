@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -55,6 +56,12 @@ model User {
   // Flashcard mastery
   flashcardMastery FlashcardMastery[]
 
+  // Gamification
+  points       Int      @default(0)
+  streak       Int      @default(0)
+  lastStudyDate DateTime?
+  level        String   @default("Beginner") // Beginner, Scholar, Expert, Master
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -101,6 +108,7 @@ model StudySet {
   description String?
 
   // Generation settings
+  subject            String? // english, science, maths, history, general
   gradeLevel         String? // elementary, middle_school, high_school, ap, college
   difficulty         String? // easy, medium, hard
   curriculum         String? // common_core, ap, ib, custom
@@ -163,6 +171,7 @@ model QuizQuestion {
   correctIndex  Int? // for MC
   correctAnswer String? // for fill-in-blank, short answer
   explanation   String?
+  hint          String?
   order         Int          @default(0)
 
   studySetId String
@@ -259,8 +268,9 @@ model TutoringSession {
   studentId String
   student   User   @relation("SessionStudent", fields: [studentId], references: [id])
 
-  notes String? @db.Text // session notes
-  recap String? @db.Text // AI-generated recap
+  notes    String? @db.Text // session notes
+  recap    String? @db.Text // AI-generated recap
+  language String  @default("en") // en, zh-TW, or both
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

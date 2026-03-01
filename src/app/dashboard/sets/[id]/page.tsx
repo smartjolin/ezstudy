@@ -28,6 +28,10 @@ import {
   Shuffle,
   Lightbulb,
   ArrowLeft,
+  Share2,
+  Copy,
+  CheckCircle2,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -156,6 +160,9 @@ export default function StudySetPage() {
   const [activeTab, setActiveTab] = useState<Tab>("flashcards");
   const [quizHistory, setQuizHistory] = useState<QuizHistoryItem[]>([]);
   const [flashcardMode, setFlashcardMode] = useState<FlashcardStudyMode>("review");
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const handleQuizComplete = useCallback((history: QuizHistoryItem[]) => {
     setQuizHistory((prev) => [...prev, ...history]);
@@ -165,6 +172,40 @@ export default function StudySetPage() {
     setFlashcardMode("weak");
     setActiveTab("flashcards");
   }, []);
+
+  const handleShare = async () => {
+    setShowShareDialog(true);
+    if (!shareCode && !setId.startsWith("gen-")) {
+      try {
+        // Try to get existing share code
+        const res = await fetch(`/api/study-sets/${setId}/share`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.shareCode) {
+            setShareCode(data.shareCode);
+            return;
+          }
+        }
+        // Generate new share code
+        const postRes = await fetch(`/api/study-sets/${setId}/share`, { method: "POST" });
+        if (postRes.ok) {
+          const data = await postRes.json();
+          setShareCode(data.shareCode);
+        }
+      } catch {
+        // Share not available for this set
+      }
+    }
+  };
+
+  const copyShareLink = () => {
+    const link = shareCode
+      ? `${window.location.origin}/dashboard/shared?code=${shareCode}`
+      : window.location.href;
+    navigator.clipboard.writeText(link);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
 
   return (
     <div>
@@ -184,6 +225,13 @@ export default function StudySetPage() {
           <p className="mt-1 text-text-secondary">{set.description}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-1.5 rounded-xl border border-primary-light/20 bg-white px-4 py-2 text-sm font-medium text-text-secondary transition-all hover:bg-surface hover:text-primary-dark"
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </button>
           <span
             className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
               set.mastery >= 80
@@ -197,6 +245,40 @@ export default function StudySetPage() {
           </span>
         </div>
       </div>
+
+      {/* Share dialog */}
+      {showShareDialog && (
+        <div className="mb-6 animate-slide-up rounded-2xl border border-primary-light/20 bg-white p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-primary-dark">Share Study Set</h3>
+            <button onClick={() => setShowShareDialog(false)} className="text-text-secondary hover:text-primary-dark">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-sm text-text-secondary mb-3">
+            Share this link with your students so they can access the study materials.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={
+                shareCode
+                  ? `${typeof window !== "undefined" ? window.location.origin : ""}/dashboard/shared?code=${shareCode}`
+                  : window.location.href
+              }
+              className="flex-1 rounded-xl border border-primary-light/20 bg-surface px-4 py-2.5 text-sm text-primary-dark"
+            />
+            <button
+              onClick={copyShareLink}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg"
+            >
+              {shareCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {shareCopied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main tool tabs */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-2">

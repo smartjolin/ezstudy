@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -18,6 +18,8 @@ import {
   Bell,
   ChevronDown,
   LogIn,
+  Moon,
+  Sun,
 } from "lucide-react";
 
 const publicLinks = [
@@ -36,9 +38,26 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const isLoggedIn = status === "authenticated";
+
+  // Initialize dark mode from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("ezstudy-dark-mode");
+    if (saved === "true") {
+      setDarkMode(true);
+      document.documentElement.classList.add("dark");
+    }
+  }, []);
+
+  const toggleDarkMode = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("ezstudy-dark-mode", String(next));
+  };
 
   const sidebarLinks = isLoggedIn
     ? [...publicLinks, ...authedLinks]
@@ -174,6 +193,13 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleDarkMode}
+              className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface hover:text-primary-dark"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             {isLoggedIn ? (
               <>
                 <button className="relative rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface hover:text-primary-dark">

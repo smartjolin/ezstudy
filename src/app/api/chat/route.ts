@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDeepseek } from "@/lib/deepseek";
+import { rateLimit } from "@/lib/rate-limit";
 
 type ChatMode = "normal" | "socratic" | "quiz_me" | "explain_simply";
 
@@ -141,6 +142,16 @@ When relevant, help the student understand these difficult concepts. Proactively
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 20 chat messages per minute per IP
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const rl = rateLimit(`chat:${ip}`, 20, 60000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many messages. Please slow down and try again in a moment." },
+      { status: 429 }
+    );
+  }
+
   try {
     const {
       messages,

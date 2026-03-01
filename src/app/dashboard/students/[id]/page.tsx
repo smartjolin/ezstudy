@@ -23,6 +23,14 @@ import {
   Timer,
 } from "lucide-react";
 
+interface QuizAnswer {
+  id: string;
+  isCorrect: boolean;
+  question: {
+    question: string;
+  };
+}
+
 interface QuizAttempt {
   id: string;
   score: number;
@@ -33,6 +41,7 @@ interface QuizAttempt {
     id: string;
     title: string;
   };
+  answers?: QuizAnswer[];
 }
 
 interface Assignment {
@@ -840,6 +849,51 @@ function ProgressTab({
           </div>
         </div>
       </div>
+
+      {/* Weak Topics */}
+      {(() => {
+        const missed: { question: string; setTitle: string }[] = [];
+        for (const attempt of quizAttempts) {
+          if (!attempt.answers) continue;
+          for (const ans of attempt.answers) {
+            if (!ans.isCorrect) {
+              missed.push({
+                question: ans.question.question,
+                setTitle: attempt.studySet.title,
+              });
+            }
+          }
+        }
+        if (missed.length === 0) return null;
+        return (
+          <div className="rounded-2xl border border-danger/10 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-secondary">
+              Areas to Review ({missed.length} missed questions)
+            </h3>
+            <div className="space-y-2 max-h-[250px] overflow-y-auto">
+              {missed.slice(0, 10).map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 rounded-xl bg-danger/5 px-4 py-3"
+                >
+                  <X className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-primary-dark">{m.question}</p>
+                    <p className="mt-0.5 text-xs text-text-secondary">
+                      From: {m.setTitle}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {missed.length > 10 && (
+                <p className="text-center text-xs text-text-secondary">
+                  + {missed.length - 10} more missed questions
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Quiz score timeline */}
       <div className="rounded-2xl border border-primary-light/10 bg-white p-6 shadow-sm">

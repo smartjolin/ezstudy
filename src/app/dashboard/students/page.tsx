@@ -14,6 +14,8 @@ import {
   X,
   AlertCircle,
   Search,
+  Upload,
+  CheckCircle2,
 } from "lucide-react";
 
 interface Student {
@@ -72,6 +74,12 @@ export default function StudentsPage() {
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
+  // Bulk import state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkCsv, setBulkCsv] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{ added: number; errors: string[] } | null>(null);
+
   useEffect(() => {
     fetchStudents();
   }, []);
@@ -127,6 +135,53 @@ export default function StudentsPage() {
     }
   }
 
+  async function handleBulkImport() {
+    if (!bulkCsv.trim()) return;
+    setBulkLoading(true);
+    setBulkResults(null);
+
+    const lines = bulkCsv
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.toLowerCase().startsWith("email"));
+
+    let added = 0;
+    const errors: string[] = [];
+
+    for (const line of lines) {
+      const parts = line.split(",").map((p) => p.trim());
+      const email = parts[0];
+      const subject = parts[1] || undefined;
+
+      if (!email || !email.includes("@")) {
+        errors.push(`Invalid email: ${email || "(empty)"}`);
+        continue;
+      }
+
+      try {
+        const res = await fetch("/api/students", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, subject }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          errors.push(`${email}: ${data.error}`);
+        } else {
+          added++;
+        }
+      } catch {
+        errors.push(`${email}: Network error`);
+      }
+    }
+
+    setBulkResults({ added, errors });
+    setBulkLoading(false);
+    if (added > 0) {
+      fetchStudents();
+    }
+  }
+
   const filteredStudents = students.filter((s) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -160,13 +215,22 @@ export default function StudentsPage() {
             in your roster
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
-        >
-          <Plus className="h-4 w-4" />
-          Add Student
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBulkModal(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-primary-light/20 bg-white px-4 py-2.5 text-sm font-medium text-text-secondary transition-all hover:bg-surface hover:text-primary-dark"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Import CSV</span>
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
+          >
+            <Plus className="h-4 w-4" />
+            Add Student
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -376,6 +440,114 @@ export default function StudentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => {
+              setShowBulkModal(false);
+              setBulkResults(null);
+              setBulkCsv("");
+            }}
+          />
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-primary-dark">
+                Import Students from CSV
+              </h2>
+              <button
+                onClick={() => {
+                  setShowBulkModal(false);
+                  setBulkResults(null);
+                  setBulkCsv("");
+                }}
+                className="rounded-lg p-1 text-text-secondary transition-colors hover:bg-surface hover:text-primary-dark"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mb-3 text-sm text-text-secondary">
+              Paste a CSV with one student per line: <code className="rounded bg-surface px-1.5 py-0.5 text-xs">email, subject</code>
+            </p>
+            <p className="mb-4 text-xs text-text-secondary">
+              Example:<br />
+              <code className="rounded bg-surface px-1.5 py-0.5 text-xs">
+                student1@school.edu, English<br />
+                student2@school.edu, Science
+              </code>
+            </p>
+
+            <textarea
+              value={bulkCsv}
+              onChange={(e) => setBulkCsv(e.target.value)}
+              placeholder="email@example.com, Subject&#10;email2@example.com, Subject"
+              rows={6}
+              className="mb-4 w-full rounded-xl border border-primary-light/20 bg-surface px-4 py-3 text-sm text-primary-dark outline-none font-mono placeholder:text-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+
+            {bulkResults && (
+              <div className="mb-4 rounded-xl border border-primary-light/20 bg-surface p-4">
+                {bulkResults.added > 0 && (
+                  <p className="flex items-center gap-2 text-sm text-success">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {bulkResults.added} student{bulkResults.added > 1 ? "s" : ""} added
+                  </p>
+                )}
+                {bulkResults.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium text-danger">
+                      {bulkResults.errors.length} error{bulkResults.errors.length > 1 ? "s" : ""}:
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {bulkResults.errors.map((err, i) => (
+                        <li key={i} className="text-xs text-text-secondary">
+                          {err}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkModal(false);
+                  setBulkResults(null);
+                  setBulkCsv("");
+                }}
+                className="flex-1 rounded-xl border border-primary-light/20 px-4 py-3 text-sm font-semibold text-text-secondary transition-all hover:bg-surface hover:text-primary-dark"
+              >
+                {bulkResults ? "Done" : "Cancel"}
+              </button>
+              {!bulkResults && (
+                <button
+                  onClick={handleBulkImport}
+                  disabled={bulkLoading || !bulkCsv.trim()}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-4 py-3 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110 disabled:opacity-50"
+                >
+                  {bulkLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      Import Students
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

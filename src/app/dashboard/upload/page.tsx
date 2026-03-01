@@ -5,10 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Upload,
   FileText,
-  Image,
-  Video,
-  Mic,
-  Link as LinkIcon,
   X,
   Sparkles,
   Loader2,
@@ -17,30 +13,60 @@ import {
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
+  BookOpen,
+  Save,
+  FolderOpen,
+  Trash2,
 } from "lucide-react";
 import { saveGeneratedSet } from "@/lib/store";
 import type { GeneratedStudySet } from "@/lib/store";
 
-const fileTypes = [
-  { icon: FileText, label: "PDF", accept: ".pdf", color: "text-red-500" },
-  { icon: FileText, label: "PPTX", accept: ".pptx,.ppt", color: "text-orange-500" },
-  { icon: FileText, label: "DOCX", accept: ".docx,.doc", color: "text-blue-500" },
-  { icon: Image, label: "Images", accept: ".jpg,.jpeg,.png", color: "text-green-500" },
-  { icon: Video, label: "Video", accept: ".mp4,.mov", color: "text-purple-500" },
-  { icon: Mic, label: "Audio", accept: ".mp3,.wav", color: "text-pink-500" },
-];
+interface SettingsTemplate {
+  name: string;
+  subject: string;
+  gradeLevel: string;
+  difficulty: string;
+  curriculum: string;
+  customInstructions: string;
+  contentAmount: string;
+}
+
+function getSavedTemplates(): SettingsTemplate[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("ezstudy-templates");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTemplate(template: SettingsTemplate) {
+  const existing = getSavedTemplates();
+  const updated = existing.filter((t) => t.name !== template.name);
+  updated.push(template);
+  localStorage.setItem("ezstudy-templates", JSON.stringify(updated));
+}
+
+function deleteTemplate(name: string) {
+  const existing = getSavedTemplates();
+  localStorage.setItem(
+    "ezstudy-templates",
+    JSON.stringify(existing.filter((t) => t.name !== name))
+  );
+}
 
 export default function UploadPage() {
   const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [topic, setTopic] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [gradeLevel, setGradeLevel] = useState("High School");
+  const [subject, setSubject] = useState("General");
+  const [gradeLevel, setGradeLevel] = useState("Middle School");
   const [difficulty, setDifficulty] = useState("Medium");
   const [curriculum, setCurriculum] = useState("None");
   const [customInstructions, setCustomInstructions] = useState("");
@@ -51,12 +77,30 @@ export default function UploadPage() {
     notes: false,
     tutor: false,
   });
+  const [templates, setTemplates] = useState<SettingsTemplate[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  // Load templates on mount
+  useState(() => {
+    setTemplates(getSavedTemplates());
+  });
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(
+      (f) =>
+        f.name.toLowerCase().endsWith(".pdf") ||
+        f.name.toLowerCase().endsWith(".txt") ||
+        f.name.toLowerCase().endsWith(".md")
+    );
+    if (droppedFiles.length === 0) {
+      setError("Only PDF and text files are supported.");
+      return;
+    }
     setFiles((prev) => [...prev, ...droppedFiles]);
+    setError("");
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,25 +113,35 @@ export default function UploadPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const extractPdfText = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/extract-pdf", {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to extract PDF text");
+    }
+    const data = await res.json();
+    return data.text;
+  };
+
   const handleGenerate = async () => {
     setIsProcessing(true);
     setError("");
     setProgress(10);
 
     try {
-      // Determine what to send to the API
-      const topicText =
-        topic.trim() ||
-        (files.length > 0
-          ? `Study materials from files: ${files.map((f) => f.name).join(", ")}`
-          : youtubeUrl.trim()
-          ? `YouTube video: ${youtubeUrl}`
-          : "General study topic");
-
-      // Read file contents if text-based files are provided
+      // Extract text from all files
       let materialContent = "";
       for (const file of files) {
-        if (
+        if (file.name.toLowerCase().endsWith(".pdf")) {
+          setProgress(15);
+          materialContent += await extractPdfText(file);
+          materialContent += "\n\n";
+        } else if (
           file.type === "text/plain" ||
           file.name.endsWith(".txt") ||
           file.name.endsWith(".md")
@@ -97,9 +151,15 @@ export default function UploadPage() {
         }
       }
 
-      setProgress(20);
+      const topicText =
+        topic.trim() ||
+        (files.length > 0
+          ? `Study materials from: ${files.map((f) => f.name).join(", ")}`
+          : "General study topic");
 
-      // Call the generate API (allow up to 60s for AI generation)
+      setProgress(25);
+
+      // Call the generate API
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
       const res = await fetch("/api/generate", {
@@ -108,6 +168,7 @@ export default function UploadPage() {
         body: JSON.stringify({
           topic: topicText,
           materialContent: materialContent || undefined,
+          subject,
           gradeLevel,
           difficulty,
           curriculum,
@@ -131,7 +192,6 @@ export default function UploadPage() {
       setProgress(70);
       setStepsDone((prev) => ({ ...prev, quizzes: true }));
 
-      // Create the generated set with a unique ID
       const setId = `gen-${Date.now()}`;
       const generated: GeneratedStudySet = {
         id: setId,
@@ -146,28 +206,33 @@ export default function UploadPage() {
       setProgress(85);
       setStepsDone((prev) => ({ ...prev, notes: true }));
 
-      // Save to session storage
       saveGeneratedSet(generated);
 
       setProgress(100);
       setStepsDone((prev) => ({ ...prev, tutor: true }));
 
-      // Navigate to the new study set
       setTimeout(() => {
         router.push(`/dashboard/sets/${setId}`);
       }, 800);
     } catch (err) {
       console.error("Generation error:", err);
       setError(
-        err instanceof Error ? err.message : "Something went wrong. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
       );
       setIsProcessing(false);
       setProgress(0);
-      setStepsDone({ flashcards: false, quizzes: false, notes: false, tutor: false });
+      setStepsDone({
+        flashcards: false,
+        quizzes: false,
+        notes: false,
+        tutor: false,
+      });
     }
   };
 
-  const hasContent = files.length > 0 || youtubeUrl.trim() || topic.trim();
+  const hasContent = files.length > 0 || topic.trim();
 
   if (isProcessing) {
     return (
@@ -182,17 +247,19 @@ export default function UploadPage() {
           </div>
           <h2 className="text-2xl font-extrabold text-primary-dark">
             {progress < 100
-              ? "Generating Study Tools with DeepSeek AI..."
+              ? "Generating Study Tools with AI..."
               : "All Done!"}
           </h2>
           <p className="mt-2 text-text-secondary">
-            {progress < 30
-              ? "Sending your materials to AI..."
-              : progress < 60
-              ? "Creating flashcards and quizzes..."
-              : progress < 90
-              ? "Generating notes and summaries..."
-              : "Finalizing your study set..."}
+            {progress < 20
+              ? "Extracting text from your materials..."
+              : progress < 40
+                ? "Sending content to AI..."
+                : progress < 60
+                  ? "Creating flashcards and quizzes..."
+                  : progress < 90
+                    ? "Generating notes and summaries..."
+                    : "Finalizing your study set..."}
           </p>
 
           <div className="mx-auto mt-8 w-full max-w-md">
@@ -243,8 +310,7 @@ export default function UploadPage() {
           Upload Study Materials
         </h1>
         <p className="mt-1 text-text-secondary">
-          Upload your course materials or enter a topic to generate AI study
-          tools.
+          Upload a PDF, paste text, or enter a topic to generate AI study tools.
         </p>
       </div>
 
@@ -280,18 +346,17 @@ export default function UploadPage() {
             or click to browse files
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {fileTypes.map((type) => (
-              <span
-                key={type.label}
-                className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-text-secondary"
-              >
-                {type.label}
-              </span>
-            ))}
+            <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+              PDF
+            </span>
+            <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+              TXT
+            </span>
           </div>
           <input
             type="file"
             multiple
+            accept=".pdf,.txt,.md"
             onChange={handleFileSelect}
             className="absolute inset-0 cursor-pointer opacity-0"
             style={{ position: "relative", marginTop: "1rem" }}
@@ -334,21 +399,6 @@ export default function UploadPage() {
         </div>
       )}
 
-      {/* YouTube URL */}
-      <div className="mb-6 rounded-2xl border border-primary-light/20 bg-white p-6">
-        <h3 className="mb-3 flex items-center gap-2 font-semibold text-primary-dark">
-          <LinkIcon className="h-5 w-5 text-primary" />
-          YouTube Video Link
-        </h3>
-        <input
-          type="url"
-          value={youtubeUrl}
-          onChange={(e) => setYoutubeUrl(e.target.value)}
-          placeholder="https://www.youtube.com/watch?v=..."
-          className="w-full rounded-xl border border-primary-light/20 bg-surface px-4 py-3 text-sm text-primary-dark outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
-        />
-      </div>
-
       {/* Topic input */}
       <div className="mb-8 rounded-2xl border border-primary-light/20 bg-white p-6">
         <h3 className="mb-3 flex items-center gap-2 font-semibold text-primary-dark">
@@ -359,7 +409,7 @@ export default function UploadPage() {
           type="text"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="e.g., Introduction to Cellular Biology"
+          placeholder="e.g., Photosynthesis and Plant Biology"
           className="w-full rounded-xl border border-primary-light/20 bg-surface px-4 py-3 text-sm text-primary-dark outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
         <p className="mt-2 text-xs text-text-secondary">
@@ -390,28 +440,57 @@ export default function UploadPage() {
 
         {settingsOpen && (
           <div className="space-y-6 border-t border-primary-light/10 px-6 pb-6 pt-4">
+            {/* Subject */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-primary-dark">
+                <BookOpen className="mr-1 inline h-4 w-4" />
+                Subject
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {["General", "English", "Science", "Maths", "History"].map(
+                  (s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSubject(s)}
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                        subject === s
+                          ? "bg-primary text-white shadow-md"
+                          : "border border-primary-light/20 bg-surface text-text-secondary hover:border-primary hover:text-primary-dark"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
             {/* Grade Level */}
             <div>
               <label className="mb-2 block text-sm font-medium text-primary-dark">
                 Grade Level
               </label>
               <div className="flex flex-wrap gap-2">
-                {["Elementary", "Middle School", "High School", "AP/College"].map(
-                  (level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => setGradeLevel(level)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                        gradeLevel === level
-                          ? "bg-primary text-white shadow-md"
-                          : "border border-primary-light/20 bg-surface text-text-secondary hover:border-primary hover:text-primary-dark"
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  )
-                )}
+                {[
+                  "Elementary",
+                  "Middle School",
+                  "High School",
+                  "AP/College",
+                ].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setGradeLevel(level)}
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                      gradeLevel === level
+                        ? "bg-primary text-white shadow-md"
+                        : "border border-primary-light/20 bg-surface text-text-secondary hover:border-primary hover:text-primary-dark"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -449,10 +528,14 @@ export default function UploadPage() {
                 className="w-full rounded-xl border border-primary-light/20 bg-surface px-4 py-3 text-sm text-primary-dark outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="None">None</option>
-                <option value="Common Core">Common Core</option>
+                <option value="IB MYP">
+                  IB MYP (International Baccalaureate)
+                </option>
+                <option value="IGCSE">IGCSE (Cambridge)</option>
+                <option value="Common Core">Common Core (US)</option>
                 <option value="AP Standards">AP Standards</option>
-                <option value="IB Programme">IB Programme</option>
-                <option value="Custom">Custom</option>
+                <option value="IB Programme">IB Diploma Programme</option>
+                <option value="HKDSE">HKDSE (Local HK)</option>
               </select>
             </div>
 
@@ -479,7 +562,10 @@ export default function UploadPage() {
                 {[
                   { key: "quick", label: "Quick (5 cards, 3 quiz)" },
                   { key: "standard", label: "Standard (8 cards, 5 quiz)" },
-                  { key: "comprehensive", label: "Comprehensive (15 cards, 10 quiz)" },
+                  {
+                    key: "comprehensive",
+                    label: "Comprehensive (15 cards, 10 quiz)",
+                  },
                 ].map((option) => (
                   <button
                     key={option.key}
@@ -495,6 +581,119 @@ export default function UploadPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Templates */}
+            <div className="border-t border-primary-light/10 pt-4">
+              <label className="mb-2 block text-sm font-medium text-primary-dark">
+                Settings Templates
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {templates.map((t) => (
+                  <div
+                    key={t.name}
+                    className="group flex items-center gap-1 rounded-full border border-primary-light/20 bg-surface pl-4 pr-1 py-1"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubject(t.subject);
+                        setGradeLevel(t.gradeLevel);
+                        setDifficulty(t.difficulty);
+                        setCurriculum(t.curriculum);
+                        setCustomInstructions(t.customInstructions);
+                        setContentAmount(t.contentAmount);
+                      }}
+                      className="flex items-center gap-1.5 text-sm font-medium text-primary-dark hover:text-primary"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      {t.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteTemplate(t.name);
+                        setTemplates(getSavedTemplates());
+                      }}
+                      className="rounded-full p-1 text-text-secondary/50 opacity-0 transition-all hover:text-danger group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {!showSaveTemplate ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveTemplate(true)}
+                    className="flex items-center gap-1.5 rounded-full border border-dashed border-primary-light/30 px-4 py-1.5 text-sm font-medium text-text-secondary transition-all hover:border-primary hover:text-primary"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    Save Current
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="Template name..."
+                      className="rounded-full border border-primary-light/20 bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && templateName.trim()) {
+                          saveTemplate({
+                            name: templateName.trim(),
+                            subject,
+                            gradeLevel,
+                            difficulty,
+                            curriculum,
+                            customInstructions,
+                            contentAmount,
+                          });
+                          setTemplates(getSavedTemplates());
+                          setTemplateName("");
+                          setShowSaveTemplate(false);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (templateName.trim()) {
+                          saveTemplate({
+                            name: templateName.trim(),
+                            subject,
+                            gradeLevel,
+                            difficulty,
+                            curriculum,
+                            customInstructions,
+                            contentAmount,
+                          });
+                          setTemplates(getSavedTemplates());
+                          setTemplateName("");
+                          setShowSaveTemplate(false);
+                        }
+                      }}
+                      className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-white"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSaveTemplate(false);
+                        setTemplateName("");
+                      }}
+                      className="text-text-secondary hover:text-primary-dark"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-text-secondary">
+                Save your frequently used settings as templates for quick access.
+              </p>
             </div>
           </div>
         )}

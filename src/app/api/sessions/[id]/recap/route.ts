@@ -38,15 +38,30 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Accept notes from request body or use stored notes
+    // Accept notes and language from request body or use stored values
     const body = await request.json().catch(() => ({}));
     const notes = body.notes || tutoringSession.notes;
+    const language = body.language || tutoringSession.language || "en";
 
     if (!notes) {
       return NextResponse.json(
         { error: "No notes available to generate recap" },
         { status: 400 }
       );
+    }
+
+    // Build language instruction based on preference
+    let languageInstruction = "";
+    if (language === "both" || language === "en+zh") {
+      languageInstruction = `
+IMPORTANT: Write the recap in TWO languages:
+1. First, write the complete recap in English
+2. Then add a separator line "---"
+3. Then write the complete recap in Traditional Chinese (繁體中文)
+Both versions should contain the same information.`;
+    } else if (language === "zh-TW" || language === "zh") {
+      languageInstruction = `
+IMPORTANT: Write the entire recap in Traditional Chinese (繁體中文).`;
     }
 
     const completion = await getDeepseek().chat.completions.create({
@@ -60,8 +75,8 @@ export async function POST(
 - Note any areas that need more practice
 - Suggest follow-up activities or homework
 - Be written in a warm, encouraging tone suitable for parents to read
-
-Keep the recap to 3-5 paragraphs.`,
+${languageInstruction}
+Keep the recap to 3-5 paragraphs per language.`,
         },
         {
           role: "user",
@@ -77,15 +92,15 @@ ${notes}`,
         },
       ],
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: language === "both" || language === "en+zh" ? 2000 : 1000,
     });
 
     const recap = completion.choices[0]?.message?.content || "";
 
-    // Save recap to the session
+    // Save recap and language preference to the session
     const updated = await prisma.tutoringSession.update({
       where: { id },
-      data: { recap },
+      data: { recap, language },
     });
 
     return NextResponse.json({ recap: updated.recap });

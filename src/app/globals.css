@@ -26,6 +26,34 @@ body {
   background: #ffffff;
 }
 
+/* ---- Dark mode ---- */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: #1a1a2e;
+  color: #e0dff4;
+}
+
+html.dark .bg-white { background-color: #24243e !important; }
+html.dark .bg-surface { background-color: #1e1e36 !important; }
+html.dark .bg-white\/50 { background-color: rgba(36, 36, 62, 0.5) !important; }
+
+html.dark .text-primary-dark { color: #e0dff4 !important; }
+html.dark .text-text-secondary { color: #9d9dba !important; }
+html.dark .text-text-secondary\/80 { color: rgba(157, 157, 186, 0.8) !important; }
+
+html.dark .border-primary-light\/10 { border-color: rgba(171, 159, 242, 0.15) !important; }
+html.dark .border-primary-light\/20 { border-color: rgba(171, 159, 242, 0.2) !important; }
+
+html.dark .bg-surface\/5, html.dark .bg-primary-light\/10 { background-color: rgba(171, 159, 242, 0.1) !important; }
+html.dark .bg-primary-light\/20 { background-color: rgba(171, 159, 242, 0.15) !important; }
+
+html.dark ::-webkit-scrollbar-track { background: #1e1e36; }
+html.dark ::-webkit-scrollbar-thumb { background: #4a4570; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #7c6bc4; }
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -118,6 +146,33 @@ body {
 
 .glow-purple {
   box-shadow: 0 0 30px rgba(124, 107, 196, 0.3);
+}
+
+/* ---- Mobile responsiveness ---- */
+
+/* Ensure touch targets are at least 44px */
+@media (max-width: 640px) {
+  button, a[role="button"], [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Full-width modals on mobile */
+  .fixed.inset-0 > .relative {
+    max-width: 100% !important;
+    margin: 0 8px;
+  }
+}
+
+/* Better tap highlight on mobile */
+@media (hover: none) {
+  button, a {
+    -webkit-tap-highlight-color: rgba(124, 107, 196, 0.1);
+  }
 }
 
 ::-webkit-scrollbar {

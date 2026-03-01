@@ -11,8 +11,18 @@ import {
   TrendingUp,
   Clock,
   Sparkles,
+  Flame,
+  Trophy,
+  Star,
 } from "lucide-react";
 import { getGeneratedSets, type GeneratedStudySet } from "@/lib/store";
+
+interface GamificationStats {
+  points: number;
+  streak: number;
+  level: string;
+  nextLevel: { name: string; pointsNeeded: number } | null;
+}
 
 interface StudySetFromAPI {
   id: string;
@@ -58,6 +68,7 @@ export default function DashboardPage() {
   const [apiSets, setApiSets] = useState<StudySetFromAPI[]>([]);
   const [localSets, setLocalSets] = useState<GeneratedStudySet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gamification, setGamification] = useState<GamificationStats | null>(null);
 
   useEffect(() => {
     // Load local (sessionStorage) sets
@@ -70,6 +81,12 @@ export default function DashboardPage() {
         .then((data) => setApiSets(Array.isArray(data) ? data : []))
         .catch(() => setApiSets([]))
         .finally(() => setLoading(false));
+
+      // Fetch gamification stats
+      fetch("/api/gamification")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => setGamification(data))
+        .catch(() => {});
     } else if (status !== "loading") {
       setLoading(false);
     }
@@ -101,6 +118,52 @@ export default function DashboardPage() {
             : "Upload your study materials to get started \u2014 no account needed."}
         </p>
       </div>
+
+      {/* Gamification banner (logged-in users only) */}
+      {gamification && (
+        <div className="mb-6 rounded-2xl border border-primary-light/10 bg-gradient-to-r from-primary-dark to-accent p-4 text-white shadow-md sm:p-5">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-300" />
+              <div>
+                <p className="text-xs text-white/70">Level</p>
+                <p className="text-sm font-bold">{gamification.level}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-amber-300" />
+              <div>
+                <p className="text-xs text-white/70">Points</p>
+                <p className="text-sm font-bold">{gamification.points}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Flame className={`h-5 w-5 ${gamification.streak > 0 ? "text-orange-400" : "text-white/40"}`} />
+              <div>
+                <p className="text-xs text-white/70">Streak</p>
+                <p className="text-sm font-bold">
+                  {gamification.streak} day{gamification.streak !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+            {gamification.nextLevel && (
+              <div className="ml-auto hidden sm:block">
+                <p className="text-xs text-white/70">
+                  {gamification.nextLevel.pointsNeeded} pts to {gamification.nextLevel.name}
+                </p>
+                <div className="mt-1 h-1.5 w-32 overflow-hidden rounded-full bg-white/20">
+                  <div
+                    className="h-full rounded-full bg-amber-300 transition-all"
+                    style={{
+                      width: `${Math.max(5, 100 - (gamification.nextLevel.pointsNeeded / (gamification.points + gamification.nextLevel.pointsNeeded)) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

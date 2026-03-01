@@ -53,14 +53,19 @@ export async function GET(
       );
     }
 
-    // Get quiz attempts
+    // Get quiz attempts with answers for weak-topic analysis
     const quizAttempts = await prisma.quizAttempt.findMany({
       where: { userId: id },
       include: {
         studySet: { select: { id: true, title: true } },
+        answers: {
+          include: {
+            question: { select: { question: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 20,
     });
 
     // Get flashcard mastery counts

@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDeepseek } from "@/lib/deepseek";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 60; // Allow up to 60s for AI generation
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 generations per minute per IP
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const rl = rateLimit(`generate:${ip}`, 5, 60000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait a moment before generating again." },
+      { status: 429 }
+    );
+  }
+
   try {
     const {
       topic,
@@ -11,6 +22,7 @@ export async function POST(req: NextRequest) {
       gradeLevel = "High School",
       difficulty = "Medium",
       curriculum = "None",
+      subject = "General",
       customInstructions,
       contentAmount = "standard",
     } = await req.json();
@@ -49,6 +61,35 @@ export async function POST(req: NextRequest) {
         ? `\nCurriculum Alignment: Align all content with ${curriculum} standards. Reference relevant standards or frameworks where appropriate.`
         : "";
 
+    // Subject-specific generation guidance
+    const subjectGuidance: Record<string, string> = {
+      English: `Subject: English Language Arts
+- Flashcards: Focus on vocabulary (word → definition + example sentence + part of speech), literary terms, and grammar rules
+- Quiz questions: Include reading comprehension, grammar usage, vocabulary-in-context, and sentence completion questions
+- Notes: Organize by themes, literary devices, grammar concepts, or vocabulary categories
+- Include example sentences that are relatable to middle school students`,
+      Science: `Subject: Science
+- Flashcards: Focus on scientific terms (term → clear explanation), processes, and key concepts
+- Quiz questions: Include experiment-based questions, cause-and-effect, diagram interpretation, and process-ordering questions
+- Notes: Use clear structure with definitions, key processes, real-world applications, and "why it matters" sections
+- Include descriptions of experiments or observable phenomena where relevant`,
+      Maths: `Subject: Mathematics
+- Flashcards: Focus on formulas, definitions, and key theorems (concept → formula + when to use it + example)
+- Quiz questions: Include calculation problems, word problems, and conceptual understanding questions
+- Notes: Include step-by-step worked examples, common mistakes to avoid, and practice problem setups
+- Show problem-solving strategies and multiple approaches where applicable`,
+      History: `Subject: History
+- Flashcards: Focus on key events, dates, people, and cause-effect relationships
+- Quiz questions: Include timeline ordering, cause-and-effect, primary source interpretation, and comparison questions
+- Notes: Organize chronologically or thematically with context, significance, and connections between events
+- Include perspective and significance — why events matter, not just what happened`,
+    };
+
+    const subjectSection =
+      subject && subject !== "General" && subjectGuidance[subject]
+        ? `\n${subjectGuidance[subject]}`
+        : "";
+
     // Build custom instructions section
     const customSection = customInstructions
       ? `\nAdditional Instructions from the user: ${customInstructions}`
@@ -58,13 +99,28 @@ export async function POST(req: NextRequest) {
       ? `the following study material:\n\n${materialContent}`
       : `the topic: "${topic}"`;
 
+    // Vocabulary builder: if subject is English and topic/content looks like a word list
+    const isVocabMode =
+      subject === "English" &&
+      (topic?.toLowerCase().includes("vocab") ||
+        topic?.toLowerCase().includes("word") ||
+        customInstructions?.toLowerCase().includes("vocab"));
+
+    const vocabInstruction = isVocabMode
+      ? `\nVOCABULARY BUILDER MODE:
+- Each flashcard MUST follow this format — Front: the word | Back: [Part of speech] Definition. Example sentence using the word in context. Synonyms: list 2-3 synonyms
+- Quiz questions should focus on vocabulary-in-context: "Choose the correct word to fill the blank: ___"
+- Also include definition matching and synonym/antonym questions
+- Notes should organize words into categories (if applicable) with usage tips`
+      : "";
+
     const prompt = `You are an expert educational content creator. Generate a complete study set from ${source}.
 
 Grade Level: ${gradeLevel}
 ${gradeLevelGuidance[gradeLevel] || gradeLevelGuidance["High School"]}
 
 Difficulty: ${difficulty}
-${difficultyGuidance[difficulty] || difficultyGuidance["Medium"]}${curriculumInstruction}${customSection}
+${difficultyGuidance[difficulty] || difficultyGuidance["Medium"]}${curriculumInstruction}${subjectSection}${vocabInstruction}${customSection}
 
 Return a JSON object with exactly this structure (no markdown fences, just raw JSON):
 {
@@ -126,10 +182,32 @@ Requirements:
     return NextResponse.json(studySet);
   } catch (error: unknown) {
     console.error("Generate API error:", error);
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to generate study materials";
-    return NextResponse.json({ error: message }, { status: 500 });
+
+    // User-friendly error messages
+    if (error instanceof Error) {
+      if (error.name === "AbortError" || error.message.includes("timeout")) {
+        return NextResponse.json(
+          { error: "The AI is taking too long. Please try again with a shorter topic or less content." },
+          { status: 504 }
+        );
+      }
+      if (error.message.includes("JSON")) {
+        return NextResponse.json(
+          { error: "The AI returned an unexpected format. Please try again." },
+          { status: 502 }
+        );
+      }
+      if (error.message.includes("rate") || error.message.includes("429")) {
+        return NextResponse.json(
+          { error: "Too many requests. Please wait a moment and try again." },
+          { status: 429 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Failed to generate study materials. Please try again." },
+      { status: 500 }
+    );
   }
 }
